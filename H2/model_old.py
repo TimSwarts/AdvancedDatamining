@@ -144,11 +144,12 @@ class Neuron:
         return text
 
     def predict(self, xs):
-        prediction = []
+        predictions = []
         for point in xs:
-            value = self.bias + sum(self.weights[i] * point[i] for i in range(self.dim))
-            prediction.append(self.activation(value))
-        return prediction
+            pre_activation = self.bias + sum(self.weights[i] * point[i] for i in range(self.dim))
+            post_activation = self.activation(pre_activation)
+            predictions.append(self.activation(value))
+        return predictions
 
     def partial_fit(self, xs, ys, *, alpha=0.01):
         # Get predictions
@@ -162,5 +163,5 @@ class Neuron:
                             derivative(self.activation)(yhat) * x[j] for j in range(self.dim)]  # type: list[int]
 
     def fit(self, xs, ys, epochs=800, alpha=0.001):
-        for i in range(epochs):
+        for _ in range(epochs):
             self.partial_fit(xs, ys, alpha=alpha)
