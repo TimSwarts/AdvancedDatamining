@@ -55,7 +55,7 @@ class Perceptron:
                 epn += 1
                 if self.bias == prev_bias and self.weights == prev_weights:
                     repeat = False
-                    print(epn)
+                    print(f'number of epochs needed for convergence: {epn}')
 
 
 class LinearRegression:
@@ -201,3 +201,29 @@ class Neuron:
     def fit(self, xs, ys, epochs=800, alpha=0.001):
         for _ in range(epochs):
             self.partial_fit(xs, ys, alpha=alpha)
+
+
+def main():
+    """
+    main function used for testing
+    """
+    # create perceptron
+    perceptron = Perceptron(2)
+    # check correct initialisation
+    print(perceptron)
+    # get some test data
+    xs = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+    ys = [-1, -1, -1, 1]
+    # train the perceptron
+    perceptron.fit(xs, ys)
+    # print results
+    print(f'bias={perceptron.bias}\n'
+          f'weights={perceptron.weights}\n\n'
+          f'yhat: {perceptron.predictions}\n'
+          f'y:    {ys}')
+
+    return 0
+
+
+if __name__ == "__main__":
+    main()
