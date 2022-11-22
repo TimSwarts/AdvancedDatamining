@@ -1,4 +1,6 @@
 import math
+from collections import Counter
+from copy import deepcopy
 
 
 class Perceptron:
@@ -203,6 +205,68 @@ class Neuron:
             self.partial_fit(xs, ys, alpha=alpha)
 
 
+class Layer:
+    classcounter = Counter()
+
+    def __init__(self, outputs, *, name=None, next=None):
+        Layer.classcounter[type(self)] += 1
+        if name is None:
+            name = f'{type(self).__name__}_{Layer.classcounter[type(self)]}'  # example: Layer_1
+        self.inputs = 0
+        self.outputs = outputs
+        self.name = name
+        self.next = next
+
+    def __repr__(self):
+        text = f'Layer(inputs={self.inputs}, outputs={self.outputs}, name={repr(self.name)})'
+        if self.next is not None:
+            text += ' + ' + repr(self.next)
+        return text
+
+    def add(self, next):
+        """
+        This function adds layers to the network, a new layer is saved in the self.next variable of the current layer
+        or in that of the next layer if self.next is not empty.
+        :param next: A new layer that will be added at the end of the network.
+        """
+        if self.next is None:
+            self.next = next
+            next.set_inputs(self.outputs)
+        else:
+            self.next.add(next)
+
+    def set_inputs(self, inputs):
+        self.inputs = inputs
+
+    # optional __add__ function to allow usage of + operator to add layers
+    def __add__(self, next):
+        result = deepcopy(self)
+        result.add(deepcopy(next))
+        return result
+
+    def __getitem__(self, index):
+        if index == 0 or index == self.name:
+            return self
+        if isinstance(index, int):
+            if self.next is None:
+                raise IndexError('Layer index out of range')
+            return self.next[index - 1]
+        if isinstance(index, str):
+            if self.next is None:
+                raise KeyError(index)
+            return self.next[index]
+        raise TypeError(f'Layer indices must be integers or strings, not {type(index).__name__}')
+
+
+class InputLayer(Layer):
+
+    def __repr__(self):
+        text = f'InputLayer(outputs={self.outputs}, name={repr(self.name)})'
+        if self.next is not None:
+            text += ' + ' + repr(self.next)
+        return text
+
+
 def main():
     """
     main function used for testing
@@ -222,6 +286,10 @@ def main():
           f'yhat: {perceptron.predictions}\n'
           f'y:    {ys}')
 
+    my_network = Layer(outputs=3, name='Input')
+    my_network.add(Layer(outputs=2, name='Hidden'))
+    my_network.add(Layer(outputs=1, name='Output'))
+    print(my_network['Output'])
     return 0
 
 
