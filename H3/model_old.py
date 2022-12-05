@@ -211,7 +211,7 @@ class Layer:
             self.next = next
             next.set_inputs(self.outputs)
         else:
-            self.next.add(next)
+            self.next.add()
 
     def set_inputs(self, inputs):
         self.inputs = inputs

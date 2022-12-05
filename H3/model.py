@@ -1,4 +1,5 @@
 import math
+import random
 from collections import Counter
 from copy import deepcopy
 
@@ -257,6 +258,9 @@ class Layer:
             return self.next[index]
         raise TypeError(f'Layer indices must be integers or strings, not {type(index).__name__}')
 
+    def __call__(self, xs):
+        raise NotImplementedError('Abstract __call__ method')
+
 
 class InputLayer(Layer):
 
@@ -265,6 +269,94 @@ class InputLayer(Layer):
         if self.next is not None:
             text += ' + ' + repr(self.next)
         return text
+
+    def set_inputs(self, inputs):
+        raise NotImplementedError("An InputLayer itself can not receive inputs from previous layers,"
+                                  "as it is always the first layer of a network.")
+
+    def __call__(self, xs):
+        return self.next(xs)
+
+    def predict(self, xs):
+        yhats = self(xs)
+        return yhats
+
+
+class DenseLayer(Layer):
+    def __init__(self, outputs, *, name=None, next=None):
+        super().__init__(outputs, name=name, next=next)
+        # Set biases, one biases for every neuron (equal to the amount of outputs)
+        self.bias = [0 for _ in range(self.outputs)]
+
+        # Initialise weights (filled later in set_inputs method)
+        self.weights = None
+
+    def __repr__(self):
+        text = f'DenseLayer(outputs={self.outputs}, name={repr(self.name)})'
+        if self.next is not None:
+            text += ' + ' + repr(self.next)
+        return text
+
+    def set_inputs(self, inputs):
+        self.inputs = inputs
+        limit = math.sqrt(6 / (self.inputs + self.outputs))
+        if not self.weights:
+            self.weights = [[random.uniform(-limit, limit) for _ in range(self.inputs)] for _ in range(self.outputs)]
+
+    def __call__(self, xs):
+        """
+        xs should be a list of lists of values, where each sublist has a number of values equal to self.inputs
+        """
+        aa = []   # Uitvoerwaarden voor alle instances xs (xs is een (nested) lijst met instances)
+        for x in xs:
+            a = []   # Uitvoerwaarde voor één instance x (x is een lijst met attributen)
+            for o in range(self.outputs):
+                # Bereken voor elk neuron o uit de lijst invoerwaarden x de uitvoerwaarde
+                pre_activation = self.bias[o] + sum(self.weights[o][i] * x[i] for i in range(self.inputs))
+                a.append(pre_activation)  # a is lijst met de output waarden van 1 instance
+            aa.append(a)  # aa is een nested lijst met de output waarden van alle instances
+        yhats = self.next(aa)
+
+        # concept:
+        values = [[self.bias[o] + sum(self.weights[o][i] * x[i] for i in range(self.inputs))
+               for o in self.outputs]
+              for x in xs]
+        return yhats
+
+
+class ActivationLayer(Layer):
+    def __init__(self, outputs, *, name=None, next=None, activation=linear):
+        super().__init__(outputs, name=name, next=next)
+        self.activation = activation
+
+    def __repr__(self):
+        text = f'ActivationLayer(outputs={self.outputs}, name={self.name}, activation={self.activation.__name__})'
+        return text
+
+    def __call__(self, aa):
+        hh = []   # Uitvoerwaarden voor alle pre activatie waarden berekend in de vorige laag
+        for a in aa:
+            h = []   # Uitvoerwaarde voor één pre activatie waarde
+            for o in range(self.outputs):
+                # Bereken voor elk neuron o uit de lijst invoerwaarden x de uitvoerwaarde
+                post_activation = self.activation(a)
+                h.append(post_activation)
+            hh.append(h)
+        yhats = self.next(hh)
+        return yhats
+class LossLayer(Layer):
+    def __init__(self, loss=mean_squared_error, name=None):
+        super().__init__(outputs=None, name=name)
+        self.loss = loss
+
+    def __repr__(self):
+        text = f'LossLayer(loss={self.loss.__name__}, name={self.name})'
+        return text
+
+    def add(self, next):
+        raise NotImplementedError("It is not possible to add a layer to a LossLayer,"
+                                  "since a network should always end with a single LossLayer")
+
 
 
 def main():
