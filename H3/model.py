@@ -1,5 +1,6 @@
 import math
 import random
+import data
 from collections import Counter
 from copy import deepcopy
 
@@ -274,13 +275,17 @@ class InputLayer(Layer):
         raise NotImplementedError("An InputLayer itself can not receive inputs from previous layers,"
                                   "as it is always the first layer of a network.")
 
-    def __call__(self, xs):
-        return self.next(xs)
+    def __call__(self, xs, ys=None):
+        return self.next(xs, ys)
 
     def predict(self, xs):
-        yhats = self(xs)
+        yhats, _ = self(xs)
         return yhats
 
+    def evaluate(self, xs, ys):
+        _, ls = self(xs, ys)
+        lmean = sum(ls) / len(ls)
+        return lmean
 
 class DenseLayer(Layer):
     def __init__(self, outputs, *, name=None, next=None):
@@ -303,7 +308,7 @@ class DenseLayer(Layer):
         if not self.weights:
             self.weights = [[random.uniform(-limit, limit) for _ in range(self.inputs)] for _ in range(self.outputs)]
 
-    def __call__(self, xs):
+    def __call__(self, xs, ys=None):
         """
         xs should be a list of lists of values, where each sublist has a number of values equal to self.inputs
         """
@@ -315,13 +320,17 @@ class DenseLayer(Layer):
                 pre_activation = self.bias[o] + sum(self.weights[o][i] * x[i] for i in range(self.inputs))
                 a.append(pre_activation)  # a is lijst met de output waarden van 1 instance
             aa.append(a)  # aa is een nested lijst met de output waarden van alle instances
-        yhats = self.next(aa)
 
-        # concept:
-        values = [[self.bias[o] + sum(self.weights[o][i] * x[i] for i in range(self.inputs))
-               for o in self.outputs]
-              for x in xs]
-        return yhats
+        yhats = self.next(aa)
+        # Calculate pre activation values: linear combination for all inputs for every neuron for all instances
+        # aa = [[self.bias[o] + sum(self.weights[o][i] * x[i] for i in range(self.inputs))
+        #        for o in range(self.outputs)]
+        #       for x in xs]
+
+        # Send to aa next layer, and collect it's yhats
+        yhats, ls = self.next(aa, ys)
+
+        return yhats, ls
 
 
 class ActivationLayer(Layer):
@@ -333,17 +342,19 @@ class ActivationLayer(Layer):
         text = f'ActivationLayer(outputs={self.outputs}, name={self.name}, activation={self.activation.__name__})'
         return text
 
-    def __call__(self, aa):
+    def __call__(self, aa, ys=None):
         hh = []   # Uitvoerwaarden voor alle pre activatie waarden berekend in de vorige laag
         for a in aa:
             h = []   # Uitvoerwaarde voor één pre activatie waarde
             for o in range(self.outputs):
                 # Bereken voor elk neuron o uit de lijst invoerwaarden x de uitvoerwaarde
-                post_activation = self.activation(a)
+                post_activation = self.activation(a[o])
                 h.append(post_activation)
             hh.append(h)
-        yhats = self.next(hh)
-        return yhats
+        yhats, ls = self.next(hh, ys)
+        return yhats, ls
+
+
 class LossLayer(Layer):
     def __init__(self, loss=mean_squared_error, name=None):
         super().__init__(outputs=None, name=name)
@@ -357,31 +368,40 @@ class LossLayer(Layer):
         raise NotImplementedError("It is not possible to add a layer to a LossLayer,"
                                   "since a network should always end with a single LossLayer")
 
+    def __call__(self, hh, ys=None):
+        # yhats is the output of the previous layer, because the loss layer is always last
+        yhats = hh
+        ls = None
+        if ys:
+            ls = []
+            # For all instances calculate loss:
+            for yhat, y in zip(yhats, ys):
+                # Take sum of the loss of all outputs(number of outputs previous layer=inputs this layer)
+                ln = sum(self.loss(yhat[o], y[o]) for o in range(self.inputs))
+                ls.append(ln)
+
+        return yhats, ls
+
+
 
 
 def main():
     """
     main function used for testing
     """
-    # create perceptron
-    perceptron = Perceptron(2)
-    # check correct initialisation
-    print(perceptron)
-    # get some test data
-    xs = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-    ys = [-1, -1, -1, 1]
-    # train the perceptron
-    perceptron.fit(xs, ys)
-    # print results
-    print(f'bias={perceptron.bias}\n'
-          f'weights={perceptron.weights}\n\n'
-          f'yhat: {perceptron.predictions}\n'
-          f'y:    {ys}')
+    my_network = InputLayer(2) + \
+                 DenseLayer(2) + \
+                 ActivationLayer(2, activation=sign) + \
+                 DenseLayer(1) + \
+                 LossLayer()
+    my_network[1].bias = [1.0, -1.0]
+    my_network[1].weights = [[1.0, 1.0], [1.0, 1.0]]
+    my_network[3].bias = [-1.0]
+    my_network[3].weights = [[1.0, -1.0]]
 
-    my_network = Layer(outputs=3, name='Input')
-    my_network.add(Layer(outputs=2, name='Hidden'))
-    my_network.add(Layer(outputs=1, name='Output'))
-    print(my_network['Output'])
+    xs, ys = data.xorproblem()
+    print(f"xs:  {xs}")
+    yhats = my_network.predict(xs)
     return 0
 
 
