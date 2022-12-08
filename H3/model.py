@@ -1,8 +1,9 @@
 import math
 import random
-import data
 from collections import Counter
 from copy import deepcopy
+
+import data
 
 
 class Perceptron:
@@ -275,22 +276,29 @@ class InputLayer(Layer):
         raise NotImplementedError("An InputLayer itself can not receive inputs from previous layers,"
                                   "as it is always the first layer of a network.")
 
-    def __call__(self, xs, ys=None):
-        return self.next(xs, ys)
+    def __call__(self, xs, ys=None, alpha=None):
+        return self.next(xs, ys, alpha)
 
     def predict(self, xs):
-        yhats, _ = self(xs)
+        yhats, _, _ = self(xs)
         return yhats
 
     def evaluate(self, xs, ys):
-        _, ls = self(xs, ys)
+        _, ls, _ = self(xs, ys)
         lmean = sum(ls) / len(ls)
         return lmean
+
+    def partial_fit(self, xs, ys, alpha=0.001):
+        self(xs, ys, alpha)
+
+    def fit(self, xs, ys, epochs=800, alpha=0.001):
+        for _ in range(epochs):
+            self.partial_fit(xs, ys, alpha=alpha)
 
 class DenseLayer(Layer):
     def __init__(self, outputs, *, name=None, next=None):
         super().__init__(outputs, name=name, next=next)
-        # Set biases, one biases for every neuron (equal to the amount of outputs)
+        # Set biases, one bias for every neuron (equal to the amount of outputs)
         self.bias = [0 for _ in range(self.outputs)]
 
         # Initialise weights (filled later in set_inputs method)
@@ -308,11 +316,12 @@ class DenseLayer(Layer):
         if not self.weights:
             self.weights = [[random.uniform(-limit, limit) for _ in range(self.inputs)] for _ in range(self.outputs)]
 
-    def __call__(self, xs, ys=None):
+    def __call__(self, xs, ys=None, alpha=None):
         """
         xs should be a list of lists of values, where each sublist has a number of values equal to self.inputs
         """
         aa = []   # Uitvoerwaarden voor alle instances xs (xs is een (nested) lijst met instances)
+        gxs = None # Set gradient from loss to x input equal to None
         for x in xs:
             a = []   # Uitvoerwaarde voor één instance x (x is een lijst met attributen)
             for o in range(self.outputs):
@@ -321,16 +330,25 @@ class DenseLayer(Layer):
                 a.append(pre_activation)  # a is lijst met de output waarden van 1 instance
             aa.append(a)  # aa is een nested lijst met de output waarden van alle instances
 
-        yhats = self.next(aa)
-        # Calculate pre activation values: linear combination for all inputs for every neuron for all instances
-        # aa = [[self.bias[o] + sum(self.weights[o][i] * x[i] for i in range(self.inputs))
-        #        for o in range(self.outputs)]
-        #       for x in xs]
+        # Send to aa next layer, and collect it's yhats, ls, and gas
+        yhats, ls, gas = self.next(aa, ys, alpha)
 
-        # Send to aa next layer, and collect it's yhats
-        yhats, ls = self.next(aa, ys)
+        if alpha:
+            # Initiate empty list
+            gxs = []
+            # Calculate gradient vectors for all instances
+            for x, gan in zip(xs, gas):
+                gxn = [sum(self.weights[o][i] * gan[o] for o in range(self.outputs)) for i in range(self.inputs)]
+                # Add instance to list
+                gxs.append(gxn)
+                # Update bias and weights per instance
+                for o in range(self.outputs):
+                    # b <- b - alpha/N * xi * d_ln/d_ano
+                    self.bias[o] = self.bias[o] - alpha/len(xs) * gan[o]
+                    # w <- w - alpha/N * xi * d_ln/d_ano
+                    self.weights[o] = [self.weights[o][i] - alpha/len(xs) * gan[o] * x[i] for i in range(self.inputs)]
 
-        return yhats, ls
+        return yhats, ls, gxs
 
 
 class ActivationLayer(Layer):
@@ -342,8 +360,9 @@ class ActivationLayer(Layer):
         text = f'ActivationLayer(outputs={self.outputs}, name={self.name}, activation={self.activation.__name__})'
         return text
 
-    def __call__(self, aa, ys=None):
+    def __call__(self, aa, ys=None, alpha=None):
         hh = []   # Uitvoerwaarden voor alle pre activatie waarden berekend in de vorige laag
+        gas = None # Set gradient from loss to pre activation value to None
         for a in aa:
             h = []   # Uitvoerwaarde voor één pre activatie waarde
             for o in range(self.outputs):
@@ -351,8 +370,22 @@ class ActivationLayer(Layer):
                 post_activation = self.activation(a[o])
                 h.append(post_activation)
             hh.append(h)
-        yhats, ls = self.next(hh, ys)
-        return yhats, ls
+
+        # sent hh to the next layer and collext its yhats, ls, and gls
+        yhats, ls, gls = self.next(hh, ys, alpha)
+
+        if alpha:
+            # calculate gradients from the loss to the pre_activation value
+            gas = []
+
+            # Calculate gradient vectors for all instances:, using the derivative of the activation function and gls
+            for a, gln in zip(aa, gls):
+                # For each instance, calculate the gradient from the loss to each pre activation value
+                gan = [derivative(self.activation)(a[i]) * gln[i] for i in range(self.inputs)]
+                gas.append(gan)
+
+
+        return yhats, ls, gas
 
 
 class LossLayer(Layer):
@@ -368,10 +401,14 @@ class LossLayer(Layer):
         raise NotImplementedError("It is not possible to add a layer to a LossLayer,"
                                   "since a network should always end with a single LossLayer")
 
-    def __call__(self, hh, ys=None):
+    def __call__(self, hh, ys=None, alpha=None):
         # yhats is the output of the previous layer, because the loss layer is always last
         yhats = hh
+        # ls, the loss, which will be a list of losses for all outputs in yhats, starts at None
         ls = None
+        # gls, will be list of gradient vectors, one for each instance, with one value for each output of the prev layer
+        # starts None
+        gls = None
         if ys:
             ls = []
             # For all instances calculate loss:
@@ -380,7 +417,15 @@ class LossLayer(Layer):
                 ln = sum(self.loss(yhat[o], y[o]) for o in range(self.inputs))
                 ls.append(ln)
 
-        return yhats, ls
+            # If there is a learning rate
+            if alpha:
+                gls = []
+                # Calculate a gradient vectors for all instances in yhats
+                for yhat, y in zip(yhats, ys):
+                    # Each instance can have multiple outputs, with the derivative of the loss we calculate dl/dyhat
+                    gln = [derivative(self.loss)(yhat[o], y[o]) for o in range(self.inputs)]
+                    gls.append(gln)
+        return yhats, ls, gls
 
 
 
