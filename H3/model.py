@@ -148,12 +148,21 @@ def hinge(yhat, y):
 
 
 # Derivative function calculator
-def derivative(function, delta=0.01):
+def derivative(function, delta=0.001):
+    """
+    This function returns a function that calculates a numerical approximation of the slope in a point on the
+    input function
+    :param function: this is the function for which a derivative function is set up
+    :param delta: this is the delta used as the difference between two points to approximate the derivative
+    :return function: the derivative function of the input function
+    """
+    # Create a function that calculates a numerical approximation of the slope in a point on the given input function
     def wrapper_derivative(x, *args):
         return (function(x + delta, *args) - function(x - delta, *args)) / (2 * delta)
-
+    # Give it a distinct name
     wrapper_derivative.__name__ = function.__name__ + '’'
     wrapper_derivative.__qualname__ = function.__qualname__ + '’'
+    # Return the wrapper function
     return wrapper_derivative
 
 
@@ -248,6 +257,9 @@ class Layer:
         return result
 
     def __getitem__(self, index):
+        """
+        This function makes the network iterable
+        """
         if index == 0 or index == self.name:
             return self
         if isinstance(index, int):
