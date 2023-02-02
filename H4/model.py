@@ -1,4 +1,4 @@
-from math import e, sqrt
+from math import e, sqrt, log, exp, tanh as m_tanh
 import random
 from collections import Counter
 from copy import deepcopy
@@ -96,8 +96,8 @@ class LinearRegression:
 def linear(a):
     """
     Identity function
-    :param a: preactivation value
-    :return a: postactivation value
+    :param a: preactivation value (float)
+    :return a: postactivation value (float)
     """
     return a
 
@@ -105,8 +105,8 @@ def linear(a):
 def sign(a):
     """
     Signum function
-    :param a: preactivation value
-    :return: post activation value
+    :param a: preactivation value (float)
+    :return: post activation value (float)
     """
     if a > 0:
         return 1
@@ -118,28 +118,74 @@ def sign(a):
 def tanh(a):
     """
     Tangent hyperbolic function
-    :param a: preactivation value
-    :return: post activation value
+    :param a: preactivation value (float)
+    :return: post activation value (float)
     """
-    return (e ** a - e ** - a) / (e ** a + e ** - a)
+    return m_tanh(a)
 
 
 def softsign(a):
     """
     Softsign function
-    :param a: preactivation value
-    :return: post activation value
+    :param a: preactivation value (float)
+    :return: post activation value (float)
     """
     return a / (1 + abs(a))
 
 
+def sigmoid(a):
+    """
+    Sigmoid function
+    :param a: preactivation value (float)
+    :return: post activation value (float)
+    """
+    try:
+        return exp(a) / (1 + exp(a))
+    except OverflowError:
+        return 1.0
+
+
+def softplus(a):
+    """
+    Softplus function
+    :param a: preactivation value (float)
+    :return: post activation value (float)
+    """
+    try:
+        return log(1 + e**a)
+    except OverflowError:
+        return a
+
+
+def relu(a):
+    """
+    ReLU function
+    :param a: preactivation value (float)
+    :return: post activation value (float)
+    """
+    return max(0, a)
+
+
+def swish(a, beta=1):
+    """
+    Swish function
+    The Swish function is defined as f(x) = x * sigmoid(beta*x)
+    where sigmoid is the logistic sigmoid function and beta is a parameter that can be set.
+    :param a: preactivation value (float)
+    :param beta: parameter to control the leaning of the function towards sigmoid or identity function. (float)
+    :return: post activation value (float)
+    """
+    return a * sigmoid(a * beta)
+
+
+# One hot encoded activation functions
 def softmax(h):
     """
     This is the softmax function, it takes in a vector of numerical values h and converts it into
     a probability distribution
-    :param h: a vector of numerical (typically floating point) values
+    :param h: a vector of numerical values (list[float] | tuple[float])
     :return y: a one-hot encoded probability distribution where each value represents the probability of a class
-               associated with the index of that value.
+               associated with the index of that value. (list)
     """
     # Normalise h to prevent ZeroDivisionError and OverflowError, by subtracting the max from the vector
     h = [value - max(h) for value in h]
@@ -155,6 +201,8 @@ def softmax(h):
 def mean_squared_error(yhat, y):
     """
     Mean squared loss function, calculates loss
+    :param yhat: predicted value (float)
+    :param y: real value (float)
     """
     return (yhat - y) ** 2
 
@@ -162,25 +210,66 @@ def mean_squared_error(yhat, y):
 def mean_absolute_error(yhat, y):
     """
     Mean absolute loss function, calculates loss
+    :param yhat: predicted value (float)
+    :param y: real value (float)
     """
     return abs(yhat - y)
 
 
 def hinge(yhat, y):
     """
-    Hinge loss function
+    Hinge loss function, calculates loss
+    :param yhat: predicted value (float)
+    :param y: real value (float)
+    :return: loss between 0 and 1 (float)
     """
     return max(1 - yhat * y, 0)  # max(1−𝑦̂ ⋅𝑦,0)
 
+
+def binary_crossentropy(yhat, y, epsilon=0.0001):
+    """
+    Binary Cross Entropy loss function, calculates loss
+    :param yhat: predicted value (float)
+    :param y: real value (float)
+    :param epsilon: minimum limit used for pseudo_log (float)
+    :return: loss between 0 and 1 (float)
+    """
+    return -y * pseudo_log(yhat, epsilon) - (1 - y) * pseudo_log(1 - yhat, epsilon)
+
+
+def categorical_crossentropy(yhat, y, epsilon=0.0001):
+    """
+    Categorical Cross Entropy loss function, calculates loss
+    :param yhat: predicted value (float)
+    :param y: real value (float)
+    :param epsilon: minimum limit used for pseudo_log (float)
+    :return: loss between 0 and 1 (float)
+    """
+    return -y * pseudo_log(yhat, epsilon)
+
+
+# Support function
+def pseudo_log(x, epsilon=0.001):
+    """
+    This function substitutes the log function in the cross entropy log functions, to prevent math domain errors.
+    When the input of the log is smaller than a set minimum epsilon, a pseudo log is used instead. This prevents the
+    cases where, due to underflow or during numerical differentiation, log(x) is attempted with x <= 0
+    :param x: The input of the log (float | int)
+    :param epsilon: The minimum limit (float)
+    :return: log of x (float)
+    """
+    if x < epsilon:
+        return log(epsilon) +  (x - epsilon)/epsilon
+    return log(x)
 
 # Derivative function calculator
 def derivative(function, delta=0.001):
     """
     This function returns a function that calculates a numerical approximation of the slope in a point on the
     input function
-    :param function: This is the function for which a derivative function is set up
-    :param delta: This is the delta used as the difference between two points to approximate the derivative
-    :return function: The derivative function of the input function
+    :param function: This is the function for which a derivative function is set up (function)
+    :param delta: This is the delta used as the difference between two points to approximate the derivative (float)
+    :return function: The derivative function of the input function (function)
     """
     # Create a function that calculates a numerical approximation of the slope in a point on the given input function
     def wrapper_derivative(x, *args):
@@ -481,11 +570,11 @@ class SoftmaxLayer(Layer):
             prob = softmax(h)   # Probability distribution for one instance
             probs.append(prob)  # Collect all instances
 
-        # send probabilities to the next layer and collect its yhats, ls, and gls
+        # Send probabilities to the next layer and collect its yhats, ls, and gls
         yhats, ls, gls = self.next(probs, ys, alpha)
 
         if alpha:
-            # calculate gradients from the loss to last layer neuron output values of all instances
+            # Calculate gradients from the loss to last layer neuron output values of all instances
             ghs = []
             for yhat, gln in zip(yhats, gls):
                 # Calculate the gradient vectors for every instance, a vector contains the gradient from the loss to h
@@ -501,19 +590,21 @@ def main():
     """
     main function used for testing
     """
-    my_network = InputLayer(2) + \
-                 DenseLayer(2) + \
-                 ActivationLayer(2, activation=sign) + \
-                 DenseLayer(1) + \
-                 LossLayer()
-    my_network[1].bias = [1.0, -1.0]
-    my_network[1].weights = [[1.0, 1.0], [1.0, 1.0]]
-    my_network[3].bias = [-1.0]
-    my_network[3].weights = [[1.0, -1.0]]
-
-    xs, ys = data.xorproblem()
-    print(f"xs:  {xs}")
-    yhats = my_network.predict(xs)
+    # my_network = InputLayer(2) + \
+    #              DenseLayer(2) + \
+    #              ActivationLayer(2, activation=sign) + \
+    #              DenseLayer(1) + \
+    #              LossLayer()
+    # my_network[1].bias = [1.0, -1.0]
+    # my_network[1].weights = [[1.0, 1.0], [1.0, 1.0]]
+    # my_network[3].bias = [-1.0]
+    # my_network[3].weights = [[1.0, -1.0]]
+    #
+    # xs, ys = data.xorproblem()
+    # print(f"xs:  {xs}")
+    # yhats = my_network.predict(xs)
+    y = 1.0
+    data.graph([categorical_crossentropy, binary_crossentropy], y, xlim=(0.0, 1.0))
     return 0
 
 
