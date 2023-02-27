@@ -17,7 +17,7 @@ class Perceptron:
         text = f'Perceptron(dim={self.dim})'
         return text
 
-    def predict(self, xs):
+    def predict(self, xs, /):
         self.predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
                             self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) < 0 else 0
                             for point in xs]
@@ -46,7 +46,7 @@ class Perceptron:
             self.predict(xs)
             i += 1
 
-    def fit(self, xs, ys, epochs=0):
+    def fit(self, xs, ys, *, epochs=0):
         if epochs != 0:
             for _ in range(epochs):
                 self.partial_fit(xs, ys)
@@ -78,7 +78,7 @@ class LinearRegression:
         self.predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
         return self.predictions
 
-    def partial_fit(self, xs, ys, alpha=0.01):
+    def partial_fit(self, xs, ys, *, alpha=0.01):
         i = 0
         self.predict(xs)
         for x, y in zip(xs, ys):
@@ -87,9 +87,9 @@ class LinearRegression:
             self.predict(xs)
             i += 1
 
-    def fit(self, xs, ys, alpha=0.01, epochs=500):
+    def fit(self, xs, ys, *, alpha=0.01, epochs=500):
         for _ in range(epochs):
-            self.partial_fit(xs, ys, alpha)
+            self.partial_fit(xs, ys, alpha=alpha)
 
 
 # Activation functions
@@ -104,7 +104,7 @@ def linear(a):
 
 def sign(a):
     """
-    Signum function
+    Signum function, this function gives -1 for all negative inputs, 1 for all positive inputs, and 0 for 0.
     :param a: preactivation value (float)
     :return: post activation value (float)
     """
@@ -117,7 +117,7 @@ def sign(a):
 
 def tanh(a):
     """
-    Tangent hyperbolic function
+    Tangent hyperbolic function, this gives output valies between -1 and 1.
     :param a: preactivation value (float)
     :return: post activation value (float)
     """
@@ -126,7 +126,7 @@ def tanh(a):
 
 def softsign(a):
     """
-    Softsign function
+    Softsign function, this gives output valies between -1 and 1.
     :param a: preactivation value (float)
     :return: post activation value (float)
     """
@@ -135,7 +135,7 @@ def softsign(a):
 
 def sigmoid(a):
     """
-    Sigmoid function
+    Sigmoid function, this gives output values between 0 and 1.
     :param a: preactivation value (float)
     :return: post activation value (float)
     """
@@ -147,7 +147,7 @@ def sigmoid(a):
 
 def softplus(a):
     """
-    Softplus function
+    Softplus function, this is a smooth approximation to the ReLU function
     :param a: preactivation value (float)
     :return: post activation value (float)
     """
@@ -159,18 +159,19 @@ def softplus(a):
 
 def relu(a):
     """
-    ReLU function
+    ReLU function, 0 for all negative inputs, identity function for all postive inputs
     :param a: preactivation value (float)
     :return: post activation value (float)
     """
     return max(0, a)
 
 
-def swish(a, beta=1):
+def swish(a, *, beta=1):
     """
-    Swish function
+    Swish function, or sigmoid linear unit
     The Swish function is defined as f(x) = x * sigmoid(beta*x)
-    where sigmoid is the logistic sigmoid function and beta is a parameter that can be set.
+    where sigmoid is the logistic sigmoid function and beta is a parameter that can be set(usually 1)
+    or trained(in rare cases).
     :param a: preactivation value (float)
     :param beta: parameter to control the leaning of the function towards sigmoid or identity function. (float)
     :return: post activation value (float)
@@ -332,6 +333,7 @@ class Neuron:
             self.partial_fit(xs, ys, alpha=alpha)
 
 
+# Neural network layers:
 class Layer:
     classcounter = Counter()
 
