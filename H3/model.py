@@ -6,6 +6,7 @@ from copy import deepcopy
 import data
 
 
+# Perceptron and LinearRegression classes
 class Perceptron:
     def __init__(self, dim):
         self.dim = dim
@@ -221,12 +222,13 @@ class Neuron:
             pre_activation = self.bias + sum(self.weights[i] * x[i] for i in range(self.dim))
             # Calculate the post activation(yhat) for this instance value: phi(a)
             yhat = self.activation(pre_activation)
-            # Update bias with: b <- b - alpha * derivative(loss) * derivative(activation)
-            self.bias = self.bias - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(yhat)
 
-            # Update weights with: wi <- wi - alpha * derivative(loss) * derivative(activation)
-            self.weights = [self.weights[i] - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(yhat)
-                            * x[i] for i in range(self.dim)]
+            # Update bias with: b <- b - alpha * derivative(loss) * derivative(activation)
+            self.bias = self.bias - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(pre_activation)
+            # Update weights with: wi <- wi - alpha * derivative(loss) * derivative(activation) * xi
+            self.weights = [self.weights[i] -
+                            alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(pre_activation) * x[i]
+                            for i in range(self.dim)]
 
     def fit(self, xs, ys, epochs=800, alpha=0.001):
         for _ in range(epochs):
