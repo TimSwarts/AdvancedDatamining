@@ -1,47 +1,47 @@
 import math
 
 
+# Perceptron and LinearRegression classes
 class Perceptron:
     def __init__(self, dim):
         self.dim = dim
         self.bias = 0.0
         self.weights = [0.0 for _ in range(dim)]
-        self.predictions = []
 
     def __repr__(self):
         text = f'Perceptron(dim={self.dim})'
         return text
 
-    def predict(self, xs):
-        self.predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
+    def predict(self, xs, /):
+        predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
                             self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) < 0 else 0
                             for point in xs]
-        return self.predictions
+        return predictions
 
     def predict2(self, xs):
-        self.predictions = []
+        predictions = []
 
         for point in xs:
             prediction = self.bias + sum(self.weights[i] * point[i] for i in range(self.dim))
             if prediction > 0:
-                self.predictions.append(1)
+                predictions.append(1)
             elif prediction < 0:
-                self.predictions.append(-1)
+                predictions.append(-1)
             else:
-                self.predictions.append(0)
+                predictions.append(0)
 
-        return self.predictions
+        return predictions
 
     def partial_fit(self, xs, ys):
-        i = 0
-        self.predict(xs)
         for x, y in zip(xs, ys):
-            self.bias = self.bias - (self.predictions[i] - y)
-            self.weights = [self.weights[j] - (self.predictions[i] - y) * x[j] for j in range(self.dim)]
-            self.predict(xs)
-            i += 1
+            # Get prediction of current x
+            yhat = self.predict([x])[0]
+            # Update bias
+            self.bias = self.bias - (yhat - y)
+            # Update weights
+            self.weights = [self.weights[j] - (yhat - y) * x[j] for j in range(self.dim)]
 
-    def fit(self, xs, ys, epochs=0):
+    def fit(self, xs, ys, *, epochs=0):
         if epochs != 0:
             for _ in range(epochs):
                 self.partial_fit(xs, ys)
@@ -55,7 +55,7 @@ class Perceptron:
                 epn += 1
                 if self.bias == prev_bias and self.weights == prev_weights:
                     repeat = False
-                    print(epn)
+                    print(f'number of epochs needed for convergence: {epn}')
 
 
 class LinearRegression:
@@ -63,28 +63,24 @@ class LinearRegression:
         self.dim = dim
         self.bias = 0.0
         self.weights = [0.0 for _ in range(dim)]
-        self.predictions = []
 
     def __repr__(self):
         text = f'LinearRegression(dim={self.dim})'
         return text
 
     def predict(self, xs):
-        self.predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
-        return self.predictions
+        predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
+        return predictions
 
-    def partial_fit(self, xs, ys, alpha=0.01):
-        i = 0
-        self.predict(xs)
+    def partial_fit(self, xs, ys, *, alpha=0.01):
         for x, y in zip(xs, ys):
-            self.bias = self.bias - alpha * (self.predictions[i] - y)
-            self.weights = [self.weights[j] - alpha * (self.predictions[i] - y) * x[j] for j in range(self.dim)]
-            self.predict(xs)
-            i += 1
+            prediction = self.predict([x])[0]
+            self.bias = self.bias - alpha * (prediction - y)
+            self.weights = [self.weights[j] - alpha * (prediction - y) * x[j] for j in range(self.dim)]
 
-    def fit(self, xs, ys, alpha=0.01, epochs=500):
+    def fit(self, xs, ys, *, alpha=0.01, epochs=500):
         for _ in range(epochs):
-            self.partial_fit(xs, ys, alpha)
+            self.partial_fit(xs, ys, alpha=alpha)
 
 
 # Activation functions
@@ -143,12 +139,21 @@ def hinge(yhat, y):
 
 
 # Derivative function calculator
-def derivative(function, delta=0.01):
+def derivative(function, delta=0.001):
+    """
+    This function returns a function that calculates a numerical approximation of the slope in a point on the
+    input function
+    :param function: This is the function for which a derivative function is set up (function)
+    :param delta: This is the delta used as the difference between two points to approximate the derivative (float)
+    :return function: The derivative function of the input function (function)
+    """
+    # Create a function that calculates a numerical approximation of the slope in a point on the given input function
     def wrapper_derivative(x, *args):
         return (function(x + delta, *args) - function(x - delta, *args)) / (2 * delta)
-
+    # Give it a distinct name
     wrapper_derivative.__name__ = function.__name__ + '’'
     wrapper_derivative.__qualname__ = function.__qualname__ + '’'
+    # Return the wrapper function
     return wrapper_derivative
 
 
@@ -187,14 +192,16 @@ class Neuron:
         return predictions
 
     def partial_fit(self, xs, ys, *, alpha=0.01):
-        # get predictions
-        predictions = self.predict(xs)
-        # one epoch consists of an update for every instance
-        for x, y, yhat in zip(xs, ys, predictions):
-            # update bias with: b <- b - alpha * derivative(loss) * derivative(activation)
+        # One epoch consists of an update for every instance
+        for x, y in zip(xs, ys):
+            # Calculate the pre activation value: b + sum(wi * xi)
+            pre_activation = self.bias + sum(self.weights[i] * x[i] for i in range(self.dim))
+            # Calculate the post activation(yhat) for this instance value: phi(a)
+            yhat = self.activation(pre_activation)
+            # Update bias with: b <- b - alpha * derivative(loss) * derivative(activation)
             self.bias = self.bias - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(yhat)
 
-            # update weights with: wi <- wi - alpha * derivative(loss) * derivative(activation)
+            # Update weights with: wi <- wi - alpha * derivative(loss) * derivative(activation)
             self.weights = [self.weights[i] - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(yhat)
                             * x[i] for i in range(self.dim)]
 

@@ -11,40 +11,39 @@ class Perceptron:
         self.dim = dim
         self.bias = 0.0
         self.weights = [0.0 for _ in range(dim)]
-        self.predictions = []
 
     def __repr__(self):
         text = f'Perceptron(dim={self.dim})'
         return text
 
     def predict(self, xs, /):
-        self.predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
+        predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
                             self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) < 0 else 0
                             for point in xs]
-        return self.predictions
+        return predictions
 
     def predict2(self, xs):
-        self.predictions = []
+        predictions = []
 
         for point in xs:
             prediction = self.bias + sum(self.weights[i] * point[i] for i in range(self.dim))
             if prediction > 0:
-                self.predictions.append(1)
+                predictions.append(1)
             elif prediction < 0:
-                self.predictions.append(-1)
+                predictions.append(-1)
             else:
-                self.predictions.append(0)
+                predictions.append(0)
 
-        return self.predictions
+        return predictions
 
     def partial_fit(self, xs, ys):
-        i = 0
-        self.predict(xs)
         for x, y in zip(xs, ys):
-            self.bias = self.bias - (self.predictions[i] - y)
-            self.weights = [self.weights[j] - (self.predictions[i] - y) * x[j] for j in range(self.dim)]
-            self.predict(xs)
-            i += 1
+            # Get prediction of current x
+            yhat = self.predict([x])[0]
+            # Update bias
+            self.bias = self.bias - (yhat - y)
+            # Update weights
+            self.weights = [self.weights[j] - (yhat - y) * x[j] for j in range(self.dim)]
 
     def fit(self, xs, ys, *, epochs=0):
         if epochs != 0:
@@ -68,24 +67,20 @@ class LinearRegression:
         self.dim = dim
         self.bias = 0.0
         self.weights = [0.0 for _ in range(dim)]
-        self.predictions = []
 
     def __repr__(self):
         text = f'LinearRegression(dim={self.dim})'
         return text
 
     def predict(self, xs):
-        self.predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
-        return self.predictions
+        predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
+        return predictions
 
     def partial_fit(self, xs, ys, *, alpha=0.01):
-        i = 0
-        self.predict(xs)
         for x, y in zip(xs, ys):
-            self.bias = self.bias - alpha * (self.predictions[i] - y)
-            self.weights = [self.weights[j] - alpha * (self.predictions[i] - y) * x[j] for j in range(self.dim)]
-            self.predict(xs)
-            i += 1
+            prediction = self.predict([x])[0]
+            self.bias = self.bias - alpha * (prediction - y)
+            self.weights = [self.weights[j] - alpha * (prediction - y) * x[j] for j in range(self.dim)]
 
     def fit(self, xs, ys, *, alpha=0.01, epochs=500):
         for _ in range(epochs):
@@ -317,14 +312,16 @@ class Neuron:
         return predictions
 
     def partial_fit(self, xs, ys, *, alpha=0.01):
-        # get predictions
-        predictions = self.predict(xs)
-        # one epoch consists of an update for every instance
-        for x, y, yhat in zip(xs, ys, predictions):
-            # update bias with: b <- b - alpha * derivative(loss) * derivative(activation)
+        # One epoch consists of an update for every instance
+        for x, y in zip(xs, ys):
+            # Calculate the pre activation value: b + sum(wi * xi)
+            pre_activation = self.bias + sum(self.weights[i] * x[i] for i in range(self.dim))
+            # Calculate the post activation(yhat) for this instance value: phi(a)
+            yhat = self.activation(pre_activation)
+            # Update bias with: b <- b - alpha * derivative(loss) * derivative(activation)
             self.bias = self.bias - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(yhat)
 
-            # update weights with: wi <- wi - alpha * derivative(loss) * derivative(activation)
+            # Update weights with: wi <- wi - alpha * derivative(loss) * derivative(activation)
             self.weights = [self.weights[i] - alpha * derivative(self.loss)(yhat, y) * derivative(self.activation)(yhat)
                             * x[i] for i in range(self.dim)]
 
@@ -439,7 +436,7 @@ class DenseLayer(Layer):
             text += ' + ' + repr(self.next)
         return text
 
-    def set_inputs(self, inputs):
+    def set_inputs(self, inputs: int):
         self.inputs = inputs
         limit = sqrt(6 / (self.inputs + self.outputs))
         if not self.weights:
@@ -490,21 +487,23 @@ class ActivationLayer(Layer):
         return text
 
     def __call__(self, aa, ys=None, alpha=None):
-        hh = []   # Uitvoerwaarden voor alle pre activatie waarden berekend in de vorige laag
+        hh = []   # Post activation values calculated from all pre activation values from the previous layer
         gas = None # Set gradient from loss to pre activation value to None
         for a in aa:
-            h = []   # Uitvoerwaarde voor één pre activatie waarde
+            h = []   # Post activation values of one instance
             for o in range(self.outputs):
-                # Bereken voor elk neuron o uit de lijst invoerwaarden x de uitvoerwaarde
+                # Calculate post activation value for each neuron o, using the pre activation value (a)
                 post_activation = self.activation(a[o])
+                # Append post activation values of all neurons to data instance
                 h.append(post_activation)
+            # Collect all instances in the data set
             hh.append(h)
 
-        # send hh to the next layer and collect its yhats, ls, and gls
+        # Send hh to the next layer and collect its yhats, ls, and gls
         yhats, ls, gls = self.next(hh, ys, alpha)
 
         if alpha:
-            # calculate gradients from the loss to the pre_activation value
+            # Calculate gradients from the loss to the pre_activation value
             gas = []
 
             # Calculate gradient vectors for all instances:, using the derivative of the activation function and gls

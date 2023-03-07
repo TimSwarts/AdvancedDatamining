@@ -3,42 +3,41 @@ class Perceptron:
         self.dim = dim
         self.bias = 0.0
         self.weights = [0.0 for _ in range(dim)]
-        self.predictions = []
 
     def __repr__(self):
         text = f'Perceptron(dim={self.dim})'
         return text
 
-    def predict(self, xs):
-        self.predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
-                            self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) < 0 else 0 for point
-                            in xs]
-        return self.predictions
+    def predict(self, xs, /):
+        predictions = [1 if self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) > 0 else -1 if
+                            self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) < 0 else 0
+                            for point in xs]
+        return predictions
 
     def predict2(self, xs):
-        self.predictions = []
+        predictions = []
 
         for point in xs:
             prediction = self.bias + sum(self.weights[i] * point[i] for i in range(self.dim))
             if prediction > 0:
-                self.predictions.append(1)
+                predictions.append(1)
             elif prediction < 0:
-                self.predictions.append(-1)
+                predictions.append(-1)
             else:
-                self.predictions.append(0)
+                predictions.append(0)
 
-        return self.predictions
+        return predictions
 
     def partial_fit(self, xs, ys):
-        i = 0
-        self.predict(xs)
         for x, y in zip(xs, ys):
-            self.bias = self.bias - (self.predictions[i] - y)
-            self.weights = [self.weights[j] - (self.predictions[i] - y) * x[j] for j in range(self.dim)]
-            self.predict(xs)
-            i += 1
+            # Get prediction of current x
+            yhat = self.predict([x])[0]
+            # Update bias
+            self.bias = self.bias - (yhat - y)
+            # Update weights
+            self.weights = [self.weights[j] - (yhat - y) * x[j] for j in range(self.dim)]
 
-    def fit(self, xs, ys, epochs=0):
+    def fit(self, xs, ys, *, epochs=0):
         if epochs != 0:
             for _ in range(epochs):
                 self.partial_fit(xs, ys)
@@ -52,7 +51,7 @@ class Perceptron:
                 epn += 1
                 if self.bias == prev_bias and self.weights == prev_weights:
                     repeat = False
-                    print(epn)
+                    print(f'number of epochs needed for convergence: {epn}')
 
 
 class LinearRegression:
@@ -60,26 +59,22 @@ class LinearRegression:
         self.dim = dim
         self.bias = 0.0
         self.weights = [0.0 for _ in range(dim)]
-        self.predictions = []
 
     def __repr__(self):
         text = f'LinearRegression(dim={self.dim})'
         return text
 
     def predict(self, xs):
-        self.predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
-        return self.predictions
+        predictions = [self.bias + sum(self.weights[i] * point[i] for i in range(self.dim)) for point in xs]
+        return predictions
 
-    def partial_fit(self, xs, ys, alpha=0.01):
-        i = 0
-        self.predict(xs)
+    def partial_fit(self, xs, ys, *, alpha=0.01):
         for x, y in zip(xs, ys):
-            self.bias = self.bias - alpha * (self.predictions[i] - y)
-            self.weights = [self.weights[j] - alpha * (self.predictions[i] - y) * x[j] for j in range(self.dim)]
-            self.predict(xs)
-            i += 1
+            prediction = self.predict([x])[0]
+            self.bias = self.bias - alpha * (prediction - y)
+            self.weights = [self.weights[j] - alpha * (prediction - y) * x[j] for j in range(self.dim)]
 
-    def fit(self, xs, ys, alpha=0.01, epochs=500):
+    def fit(self, xs, ys, *, alpha=0.01, epochs=500):
         for _ in range(epochs):
-            self.partial_fit(xs, ys, alpha)
+            self.partial_fit(xs, ys, alpha=alpha)
 
