@@ -33,6 +33,16 @@ class Perceptron:
         return predictions
 
     def partial_fit(self, xs, ys):
+        """
+        This function trains the model for one epoch, updating the weights
+        for every instance in the data set
+        :param xs: This should be a list of lists wherein each sub-list should have length self.dim.
+                   These are the input values of the model.
+        :param ys: This is a list of labels (value: -1 or 1),
+                   each label corresponding to a list of input values in xs
+        """
+
+        # Loop through all instances
         for x, y in zip(xs, ys):
             # Get prediction of current x
             yhat = self.predict([x])[0]
@@ -42,20 +52,39 @@ class Perceptron:
             self.weights = [self.weights[j] - (yhat - y) * x[j] for j in range(self.dim)]
 
     def fit(self, xs, ys, *, epochs=0):
-        if epochs != 0:
-            for _ in range(epochs):
-                self.partial_fit(xs, ys)
-        else:
-            repeat = True
-            epn = 0
-            while repeat:
-                prev_bias = self.bias
-                prev_weights = self.weights
-                self.partial_fit(xs, ys)
-                epn += 1
-                if self.bias == prev_bias and self.weights == prev_weights:
-                    repeat = False
-                    print(f'number of epochs needed for convergence: {epn}')
+        """
+        This function seeks to fully fit the model to the data set,
+        it has an option to train for a given number of epochs, and an option to train until
+        every instance is predicted correctly.
+        :param xs: This should be a list of lists wherein each sub-list should have length self.dim.
+                   These are the input values of the model.
+        :param ys: This is a list of labels (value: -1 or 1),
+                   each label corresponding to a list of input values in xs
+        :param epochs: Keep this value at its default of 0 to keep training until full convergence
+                       Set it to a preferred number of epochs to train for that amount.
+        """
+        # Set a boolean that checks if the while loop should continue repeating
+        repeat = True
+        # Initialise an epoch number counter with starting value 0
+        epn = 0
+        while repeat:
+        # If repeat is true, keep fitting
+            # Remember the current bias and weights
+            prev_bias = self.bias
+            prev_weights = self.weights
+
+            # Call partial fit to update the bias and weights
+            self.partial_fit(xs, ys)
+
+            # This was one epoch, increase the counter by 1
+            epn += 1
+
+            if (self.bias == prev_bias and self.weights == prev_weights) or 0 < epochs == epn:
+            # If the updated bias and weights are equal to the previous values
+                # Then the model is no longer updating, because it is already predicting everything correctly
+                repeat = False  # Set repeat to False in order to exit the while loop
+                # Print how long it took to fit the model to the dataset
+                print(f'number of epochs trained: {epn}')
 
 
 class LinearRegression:
