@@ -64,7 +64,7 @@ class Perceptron:
         # Initialise an epoch number counter with starting value 0
         epn = 0
         while repeat:
-        # If repeat is true, keep fitting
+        # While repeat is true, keep fitting
             # Remember the current bias and weights
             prev_bias = self.bias
             prev_weights = self.weights

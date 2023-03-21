@@ -473,7 +473,7 @@ class DenseLayer(Layer):
         if not self.weights:
             self.weights = [[random.uniform(-limit, limit) for _ in range(self.inputs)] for _ in range(self.outputs)]
 
-    def __call__(self, xs, ys=None, alpha=None):
+    def __call__(self, xs: list[list[float]], ys=None, alpha=None):
         """
         xs should be a list of lists of values, where each sublist has a number of values equal to self.inputs
         """
@@ -517,7 +517,7 @@ class ActivationLayer(Layer):
         text = f'ActivationLayer(outputs={self.outputs}, name={self.name}, activation={self.activation.__name__})'
         return text
 
-    def __call__(self, aa, ys=None, alpha=None):
+    def __call__(self, aa: list[list[float]], ys=None, alpha=None):
         hh = []   # Post activation values calculated from all pre activation values from the previous layer
         gas = None # Set gradient from loss to pre activation value to None
         for a in aa:
