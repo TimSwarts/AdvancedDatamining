@@ -1,5 +1,5 @@
 # Advanced Datamining
-This repository contains code solution for the tutorials
+This repository contains code solutions for the tutorials
 on machine learning provided by Dave Langers.
 This repository is subdivided in chapters(H1, H2, ... etc).
 Each chapter contains a jupyter notebook tutorial
