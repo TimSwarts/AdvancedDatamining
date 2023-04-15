@@ -622,19 +622,19 @@ def main():
     """
     main function used for testing
     """
-    # my_network = InputLayer(2) + \
-    #              DenseLayer(2) + \
-    #              ActivationLayer(2, activation=sign) + \
-    #              DenseLayer(1) + \
-    #              LossLayer()
-    # my_network[1].bias = [1.0, -1.0]
-    # my_network[1].weights = [[1.0, 1.0], [1.0, 1.0]]
-    # my_network[3].bias = [-1.0]
-    # my_network[3].weights = [[1.0, -1.0]]
-    #
-    # xs, ys = data.xorproblem()
-    # print(f"xs:  {xs}")
-    # yhats = my_network.predict(xs)
+    my_network = InputLayer(2) + \
+                 DenseLayer(2) + \
+                 ActivationLayer(2, activation=sign) + \
+                 DenseLayer(1) + \
+                 LossLayer()
+    my_network[1].bias = [1.0, -1.0]
+    my_network[1].weights = [[1.0, 1.0], [1.0, 1.0]]
+    my_network[3].bias = [-1.0]
+    my_network[3].weights = [[1.0, -1.0]]
+
+    xs, ys = data.xorproblem()
+    print(f"xs:  {xs}")
+    yhats = my_network.predict(xs)
     y = 1.0
     data.graph([categorical_crossentropy, binary_crossentropy], y, xlim=(0.0, 1.0))
     return 0
