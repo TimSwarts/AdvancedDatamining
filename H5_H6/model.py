@@ -274,7 +274,7 @@ def categorical_crossentropy(yhat, y, epsilon=0.0001):
     return -y * pseudo_log(yhat, epsilon)
 
 
-# Support function
+# Support functions
 def pseudo_log(x, epsilon=0.001):
     """
     This function substitutes the log function in the cross entropy log functions, to prevent math domain errors.
@@ -288,7 +288,7 @@ def pseudo_log(x, epsilon=0.001):
         return log(epsilon) +  (x - epsilon)/epsilon
     return log(x)
 
-# Derivative function calculator
+
 def derivative(function, delta=0.001):
     """
     This function returns a function that calculates a numerical approximation of the slope in a point on the
@@ -305,6 +305,27 @@ def derivative(function, delta=0.001):
     wrapper_derivative.__qualname__ = function.__qualname__ + '’'
     # Return the wrapper function
     return wrapper_derivative
+
+
+def shuffle_related_lists(list1, list2):
+    """
+    Shuffles two lists such that the elements in both lists maintain their original pairings.
+    The output is a tuple containing the shuffled versions of the input lists.
+
+    Example:
+        input: list1 = [1, 2, 3], list2 = ['a', 'b', 'c']
+        output: (list1_shuffled, list2_shuffled) = ([2, 1, 3], ['b', 'a', 'c'])
+
+    :param list1: The first list to shuffle, should have the same length as list2 (list)
+    :param list2: The second list to shuffle, should have the same length as list1 (list)
+    :return: A tuple containing the shuffled versions of list1 and list2, maintaining their original pairings (tuple)
+    """
+    # Combine the two lists into a list of tuples, where each tuple contains one element from each list
+    combined = list(zip(list1, list2))
+    # Shuffle the list of tuples, ensuring that each tuple remains intact
+    random.shuffle(combined)
+    # Return the unzipped lists
+    return zip(*combined)
 
 
 # Neuron class
@@ -366,9 +387,9 @@ class Layer:
     classcounter = Counter()
 
     def __init__(self, outputs, *, name=None, next=None):
-        Layer.classcounter[type(self)] += 1
+        Layer.classcounter[f'{type(self)}'] += 1
         if name is None:
-            name = f'{type(self).__name__}_{Layer.classcounter[type(self)]}'  # example: Layer_1
+            name = f'{type(self).__name__}_{Layer.classcounter[f"{type(self)}"]}'  # example: Layer_1
         self.inputs = 0
         self.outputs = outputs
         self.name = name
@@ -417,7 +438,7 @@ class Layer:
             return self.next[index]
         raise TypeError(f'Layer indices must be integers or strings, not {type(index).__name__}')
 
-    def __call__(self, xs):
+    def __call__(self, xs, ys, alpha=None):
         raise NotImplementedError('Abstract __call__ method')
 
 
@@ -445,19 +466,43 @@ class InputLayer(Layer):
         lmean = sum(ls) / len(ls)
         return lmean
 
-    def partial_fit(self, xs, ys, alpha=0.001):
-        _, ls, _ = self(xs, ys, alpha)
-        mean_loss_of_epoch = sum(ls) / len(ls)
+    def partial_fit(self, xs, ys, *, alpha=0.001, batch_size=None):
+        input_length = len(xs)
+
+        if not batch_size:
+            # If no batch size is given, use the whole dataset
+            batch_size = len(xs)
+            number_of_batches = 1
+        else:
+            # If a batch size is given, calculate the number of batches
+            number_of_batches = (input_length + batch_size -1) // batch_size
+        # Save the losses of each batch in a list
+        list_of_losses = []
+
+        # Loop over the batches
+        for i in range(number_of_batches):
+            # Get the batch
+            x_batch = xs[i * batch_size: min((i + 1) * batch_size, len(xs))]
+            y_batch = ys[i * batch_size: min((i + 1) * batch_size, len(ys))]
+            # Update the weights and biases and save the losses of the batch
+            _, ls, _ = self(x_batch, y_batch, alpha)
+            list_of_losses.extend(ls)
+
+        # Calculate the mean loss of the epoch
+        mean_loss_of_epoch = sum(list_of_losses) / len(list_of_losses)
         return mean_loss_of_epoch
 
-    def fit(self, xs, ys, *, epochs=800, alpha=0.001, validation_data=None):
+    def fit(self, xs, ys, *, epochs=800, alpha=0.001, batch_size=None, validation_data=None):
         # Initialise loss history dict:
         history = {'loss': []}
         if validation_data:
             history['val_loss'] = []
         # Train data and append history dictionary
         for i in range(epochs):
-            mean_loss_of_epoch = self.partial_fit(xs, ys, alpha=alpha)
+            # Shuffle the input data
+            xs_shuffled, ys_shuffled = shuffle_related_lists(xs, ys)
+            # Train the network and save the mean loss of the epoch
+            mean_loss_of_epoch = self.partial_fit(xs_shuffled, ys_shuffled, alpha=alpha, batch_size=batch_size)
             history['loss'].append(mean_loss_of_epoch)
             # If validation data is given, evaluate it and add it to history as well
             if validation_data:
@@ -512,7 +557,7 @@ class DenseLayer(Layer):
                 gxs.append(gxn)
                 # Update bias and weights per instance
                 for o in range(self.outputs):
-                    # b <- b - alpha/N * xi * d_ln/d_ano (xi for bias = 1, therefor not included)
+                    # b <- b - alpha/N * xi * d_ln/d_ano (xi for bias = 1, therefore not included)
                     self.bias[o] = self.bias[o] - alpha/len(xs) * gan[o]
                     # w <- w - alpha/N * xi * d_ln/d_ano
                     self.weights[o] = [self.weights[o][i] - alpha/len(xs) * gan[o] * x[i] for i in range(self.inputs)]
@@ -647,6 +692,19 @@ def main():
     # xs, ys = data.xorproblem()
     # print(f"xs:  {xs}")
     # yhats = my_network.predict(xs)
+
+    trn_xs, trn_ys = data.segments(3, num=200, noise=0.5)
+    val_xs, val_ys = data.segments(3, num=200, noise=0.5)
+
+    my_network = InputLayer(2) + \
+                 DenseLayer(20) + ActivationLayer(20, activation=tanh) + \
+                 DenseLayer(10) + ActivationLayer(10, activation=tanh) + \
+                 DenseLayer(3) + SoftmaxLayer(3) + \
+                 LossLayer(loss=categorical_crossentropy)
+    my_history = my_network.fit(trn_xs, trn_ys, alpha=0.2, epochs=50, batch_size=20, validation_data=(val_xs, val_ys))
+    data.curve(my_history)
+
+
     y = 1.0
     data.graph([categorical_crossentropy, binary_crossentropy], y, xlim=(0.0, 1.0))
     return 0
