@@ -171,7 +171,7 @@ fabric.properties
 .idea
 
 # extra resources
-gijs
 TussenOpdracht
+test.py
 temp_ideas.py
 gijs.py
