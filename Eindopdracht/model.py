@@ -2,6 +2,7 @@ from math import e, sqrt, log, exp, tanh as m_tanh
 import random
 from collections import Counter
 from copy import deepcopy
+import time
 
 import data
 
@@ -505,13 +506,20 @@ class InputLayer(Layer):
         mean_loss_of_epoch = sum(list_of_losses) / len(list_of_losses)
         return mean_loss_of_epoch
 
-    def fit(self, xs, ys, *, epochs=800, alpha=0.001, batch_size=None, validation_data=None):
+
+    def fit(self, xs, ys, *, epochs=1, alpha=0.001, batch_size=None, validation_data=None):
         # Initialise loss history dict:
         history = {'loss': []}
         if validation_data:
             history['val_loss'] = []
+
+        # Save the start time
+        start_time = time.time()
+
         # Train data and append history dictionary
         for i in range(epochs):
+            current_epoch = i + 1
+            print(f"started epoch: {current_epoch}/{epochs} ({(time.time() - start_time)/60:.1f}min)", end='\r')
             # Shuffle the input data
             xs_shuffled, ys_shuffled = shuffle_related_lists(xs, ys)
             # Train the network and save the mean loss of the epoch
@@ -520,7 +528,12 @@ class InputLayer(Layer):
             # If validation data is given, evaluate it and add it to history as well
             if validation_data:
                 history['val_loss'].append(self.evaluate(validation_data[0], validation_data[1]))
+
+        print(f"finished training of {epochs} epochs")
+
+        # Return the loss history
         return history
+
 
 class DenseLayer(Layer):
     def __init__(self, outputs, *, name=None, next=None):
